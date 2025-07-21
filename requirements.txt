@@ -1,0 +1,8 @@
+streamlit
+pandas
+numpy
+snowflake-connector-python
+scikit-learn
+pyod
+plotly
+openai
