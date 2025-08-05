@@ -8,20 +8,17 @@ from pyod.models.copod import COPOD
 import plotly.express as px
 import openai
 
-# ==============================
-# PAGE CONFIG
-# ==============================
-st.set_page_config(page_title="Insurance Anomaly Validator", layout="wide")
-st.title("📊 Insurance Anomaly Detection (Snowflake + CSV)")
 
-# ==============================
+# PAGE CONFIG
+st.set_page_config(page_title="Anomaly Validator", layout="wide")
+st.title("Anomaly Detection using AI")
+
+
 # API CONFIG
-# ==============================
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# ==============================
+
 # SNOWFLAKE CONFIG
-# ==============================
 snowflake_config = {
     "user": st.secrets["SNOWFLAKE_USER"],
     "password": st.secrets["SNOWFLAKE_PASSWORD"],
@@ -82,9 +79,8 @@ def explain_anomaly(row):
         return response.choices[0].message['content']
     except Exception as e:
         return f"Explanation error: {e}"
-# ==============================
+
 # UI
-# ==============================
 st.subheader("Step 1: Load Historical Training Data from Snowflake")
 if st.button("Training Model"):
     df_train = load_training_data()
@@ -94,8 +90,7 @@ if st.button("Training Model"):
         st.success("Training Data Loaded")
         #st.dataframe(df_train.head())
 
-        # Save training data in session state
-        #st.session_state["df_train"] = df_train
+        st.session_state["df_train"] = df_train
 
 st.subheader("Step 2: Upload New Validation Data (CSV)")
 csv_file = st.file_uploader("Upload validation dataset", type=["csv"])
@@ -103,12 +98,11 @@ csv_file = st.file_uploader("Upload validation dataset", type=["csv"])
 if csv_file and "df_train" in st.session_state:
     df_train = st.session_state["df_train"]
     df_test = pd.read_csv(csv_file)
-    st.success("✅ Validation Data Loaded")
+    st.success("Validation Data Loaded")
     st.dataframe(df_test.head())
 
-    # ==============================
+    
     # PREPROCESSING
-    # ==============================
     numeric_features = ["PREMIUM_AMOUNT", "PREMIUM_TXN_AMOUNT", "CLAIM_AMOUNT"]
     categorical_features = ["POLICY_TYPE", "REGION", "CLAIM_TYPE", "CLAIM_STATUS"]
 
@@ -116,31 +110,26 @@ if csv_file and "df_train" in st.session_state:
         ('num', StandardScaler(), numeric_features),
         ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
     ])
-
+    
     X_train = preprocessor.fit_transform(df_train)
     X_test = preprocessor.transform(df_test)
-
-    # ==============================
+    
     # TRAIN MODEL
-    # ==============================
     model = COPOD()
     model.fit(X_train)
 
-    # ==============================
+    
     # VALIDATE NEW DATA
-    # ==============================
-    print(X_test)
     df_test["Anomaly_Score"] = model.decision_function(X_test)
     df_test["Anomaly_Flag"] = model.predict(X_test)
     anomalies = df_test[df_test["Anomaly_Flag"] == 1]
 
-    st.subheader("📌 Detected Anomalies")
+    st.subheader("Detected Anomalies")
     st.dataframe(anomalies)
 
-    # ==============================
+    
     # VISUALIZATIONS
-    # ==============================
-    st.subheader("📊 Anomaly Visualization")
+    '''st.subheader("Anomaly Visualization")
     if not anomalies.empty:
         fig1 = px.pie(anomalies, names="POLICY_TYPE", title="Anomalies by Policy Type")
         st.plotly_chart(fig1, use_container_width=True)
@@ -148,21 +137,19 @@ if csv_file and "df_train" in st.session_state:
         fig2 = px.bar(anomalies, x="REGION", title="Anomalies by Region", color="REGION")
         st.plotly_chart(fig2, use_container_width=True)
     else:
-        st.info("No anomalies detected.")
+        st.info("No anomalies detected.")'''
 
-    # ==============================
+
     # AI EXPLANATION
-    # ==============================
-    if st.toggle("🧠 Explain anomalies with AI"):
+    if st.toggle("Explain anomalies with AI"):
         for i, row in anomalies.head(5).iterrows():
             st.markdown(f"**Policy ID:** {row['POLICY_ID']} | **Claim ID:** {row.get('CLAIM_ID','N/A')}")
             explanation = explain_anomaly(row)
             st.write(explanation)
             st.markdown("---")
 
-    # ==============================
+    
     # DOWNLOAD OPTION
-    # ==============================
     st.download_button(
         "Download Anomalies as CSV",
         anomalies.to_csv(index=False),
